@@ -6,9 +6,11 @@ import {ExpensesContext} from "../store/expenses-context";
 import ExpenseForm from "../components/ManageExpense/ExpenseForm";
 import {deleteExpense, storeExpenses, updateExpense} from "../util/http";
 import LoadingOverlay from "../components/UI/LoadingOverlay";
+import ErrorOverlay from "../components/UI/ErrorOverlay";
 
 function ManageExpense({ route, navigation }) {
     const [isSubmiting, setIsSubmiting] = useState(false);
+    const [error, setError] = useState();
     //check if we are editing item or adding
     //from where is screen getting called?
     //If params is undefined we are adding
@@ -29,9 +31,14 @@ function ManageExpense({ route, navigation }) {
 
     async function deleteExpenseHandler() {
         setIsSubmiting(true);
-        await deleteExpense(editedExpenseId)
-        expensesCtx.deleteExpense(editedExpenseId);
-        navigation.goBack();
+        try {
+            await deleteExpense(editedExpenseId)
+            expensesCtx.deleteExpense(editedExpenseId);
+            navigation.goBack();
+        } catch (error) {
+            setError('Could not delete expense = try again later');
+            setIsSubmiting(false);
+        }
     }
 
     function cancelHandler() {
@@ -40,17 +47,29 @@ function ManageExpense({ route, navigation }) {
 
     async function confirmHandler(expenseData) {
         setIsSubmiting(true);
-        if (isEditing) {
-            expensesCtx.updateExpense(editedExpenseId, expenseData);
-            await updateExpense(editedExpenseId, expenseData);
-        } else {
-            const id = await storeExpenses(expenseData);
-            expensesCtx.addExpense({ ...expenseData, id: id });
+        try {
+            if (isEditing) {
+                expensesCtx.updateExpense(editedExpenseId, expenseData);
+                await updateExpense(editedExpenseId, expenseData);
+            } else {
+                const id = await storeExpenses(expenseData);
+                expensesCtx.addExpense({ ...expenseData, id: id });
+            }
+            navigation.goBack();
+        } catch (error) {
+            setError('Could not save data - try again later!')
+            setIsSubmiting(false);
         }
-        navigation.goBack();
     }
 
-    if(isSubmiting) {
+    function errorHandler() {
+        setError(null);
+    }
+
+    if (error && !isSubmiting) {
+        return <ErrorOverlay message={error} onConfirm={errorHandler}/>
+    }
+    if (isSubmiting) {
         return <LoadingOverlay/>;
     }
     return (
